@@ -14,3 +14,8 @@ javascripts:
   two:
     - test/test3.js
     - test/test4.js
+
+stylesheets:
+  main:
+    - test/scaffold.css
+    - test/buttons.css
