@@ -8,6 +8,8 @@ import(
 	"github.com/tdewolff/minify/js"
     "os"
     "bytes"
+    "compress/gzip"
+    "io/ioutil"
 )
 
 var data = `
@@ -47,26 +49,38 @@ func (g *Gammit) ReadYaml() {
 }
 
 func (g *Gammit) Process() {
-    g.processJavascripts();
+    g.processGroup("javascripts", "text/javascript", ".js");
+    g.processGroup("stylesheets", "text/css", ".css");
 }
 
-func (g *Gammit) processJavascripts() {
-    for group, files := range g.Config["javascripts"].(map[interface{}]interface{}) {
+func (g *Gammit) processGroup(section string, mediaType string, fileType string) {
+    if g.Config[section] == nil {
+        panic("Could not find section '"+section+"' in the config file!")
+    }
+    for group, files := range g.Config[section].(map[interface{}]interface{}) {
         fmt.Println("Group " + group.(string))
 
         fileList := files.([]interface{})
-        minified := g.minifyFilesInGroup("text/javascript", fileList)
+        minified := g.minifyFilesInGroup(mediaType, fileList)
 
-        outputFile, err := os.Create(group.(string) + ".js")
+        outputFile, err := os.Create(group.(string) + fileType)
         check(err)
         defer outputFile.Close()
 
         for _, minifiedBytes := range minified {
             _, err := outputFile.Write(minifiedBytes)
             check(err)
+
+            var b bytes.Buffer
+            gw := gzip.NewWriter(&b)
+            gw.Write(minifiedBytes)
+            gw.Close()
+
+            err = ioutil.WriteFile(group.(string) + fileType + ".gz", b.Bytes(), 0666)
+            check(err)
         }
-        outputFile.Close()
     }
+
 }
 
 func (g *Gammit) minifyFilesInGroup(mediaType string, fileList []interface{}) ([][]byte) {
