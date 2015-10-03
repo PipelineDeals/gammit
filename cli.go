@@ -19,13 +19,15 @@ func main() {
     minifier.AddFunc("text/css", css.Minify)
     minifier.AddFunc("text/javascript", js.Minify)
 
+    flag.Parse()
+
     data, err := ioutil.ReadFile(*configFileLocation)
     if err != nil {
         panic(err)
     }
 
-    gammit := &gammit.Gammit{Minifier: minifier}
+    gammit := &gammit.Gammit{Minifier: minifier, OutputPath: *outputLocation}
     gammit.ReadYaml(data)
-    gammit.Process(*outputLocation)
+    gammit.Process()
 }
 

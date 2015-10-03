@@ -21,13 +21,16 @@ type Assets struct {
 type Gammit struct {
 	Config map[interface{}]interface{}
 	Minifier  *minify.Minify
+	OutputPath string
 }
 
 func (g *Gammit) ReadYaml(data []byte) {
 	yaml.Unmarshal(data, &g.Config)
 }
 
-func (g *Gammit) Process(outputLocation string) {
+func (g *Gammit) Process() {
+	os.MkdirAll(g.OutputPath, 0755)
+
 	g.processGroup("javascripts", "text/javascript", ".js");
 	g.processGroup("stylesheets", "text/css", ".css");
 }
@@ -42,7 +45,7 @@ func (g *Gammit) processGroup(section string, mediaType string, fileType string)
 		fileList := files.([]interface{})
 		minified := g.minifyFilesInGroup(mediaType, fileList)
 
-		outputFile, err := os.Create(group.(string) + fileType)
+		outputFile, err := os.Create(g.OutputPath + "/" + group.(string) + fileType)
 		g.check(err)
 		defer outputFile.Close()
 
@@ -55,7 +58,7 @@ func (g *Gammit) processGroup(section string, mediaType string, fileType string)
 			gw.Write(minifiedBytes)
 			gw.Close()
 
-			err = ioutil.WriteFile(group.(string) + fileType + ".gz", b.Bytes(), 0666)
+			err = ioutil.WriteFile(g.OutputPath + "/" + group.(string) + fileType + ".gz", b.Bytes(), 0666)
 			g.check(err)
 		}
 	}
