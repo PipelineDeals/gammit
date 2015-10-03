@@ -2,8 +2,11 @@ package main
 
 import(
 	"gopkg.in/yaml.v2"
-  "log"
-  "fmt"
+    "log"
+    "fmt"
+    "github.com/web-assets/go-jsmin"
+    "os"
+    "bytes"
 )
 
 var data = `
@@ -44,9 +47,36 @@ func main() {
     for group, files := range m["javascripts"].(map[interface{}]interface{}) {
         fmt.Println("Group " +group.(string))
 
-        for _, file := range files.([]interface{}) {
-            fmt.Println("   File: " +file.(string))
-        }
+        fileList := files.([]interface{})
+
+        minified := minifyFilesInGroup(fileList)
+        fmt.Println(minified)
+
     }
+}
+
+func minifyFilesInGroup(fileList []interface{}) ([][]byte) {
+    i := 0
+    minified := make([][]byte, len(fileList))
+
+    for _, file := range fileList {
+        fmt.Println("   File: " +file.(string))
+        os.Open(file.(string))
+
+        f, err := os.Open(file.(string))
+        if err != nil {
+            panic(err)
+        }
+
+        buf := new(bytes.Buffer)
+        jsmin.Min(f, buf)
+        f.Close()
+
+        // read the output into our minified slice
+        minified[i] = buf.Bytes()
+
+        i += 1
+    }
+    return minified
 }
 
