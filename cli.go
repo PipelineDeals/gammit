@@ -2,9 +2,10 @@ package main
 
 import(
 	"gopkg.in/yaml.v2"
-    "log"
     "fmt"
-    "github.com/web-assets/go-jsmin"
+    "github.com/tdewolff/minify"
+    "github.com/tdewolff/minify/css"
+	"github.com/tdewolff/minify/js"
     "os"
     "bytes"
 )
@@ -36,26 +37,39 @@ type Assets struct {
 	Javascripts JavascriptAssets `yaml:"javascripts"`
 }
 
-func main() {
-    m := make(map[interface{}]interface{})
-    err := yaml.Unmarshal([]byte(data), &m)
-    if err != nil {
-        log.Fatalf("error: %v", err)
-    }
+type Gammit struct {
+    Config map[interface{}]interface{}
+    Minifier  *minify.Minify
+}
 
-    fmt.Println("groups:")
-    for group, files := range m["javascripts"].(map[interface{}]interface{}) {
-        fmt.Println("Group " +group.(string))
+func (g *Gammit) ReadYaml() {
+    yaml.Unmarshal([]byte(data), &g.Config)
+}
+
+func (g *Gammit) Process() {
+    g.processJavascripts();
+}
+
+func (g *Gammit) processJavascripts() {
+    for group, files := range g.Config["javascripts"].(map[interface{}]interface{}) {
+        fmt.Println("Group " + group.(string))
 
         fileList := files.([]interface{})
+        minified := g.minifyFilesInGroup("text/javascript", fileList)
 
-        minified := minifyFilesInGroup(fileList)
-        fmt.Println(minified)
+        outputFile, err := os.Create(group.(string) + ".js")
+        check(err)
+        defer outputFile.Close()
 
+        for _, minifiedBytes := range minified {
+            _, err := outputFile.Write(minifiedBytes)
+            check(err)
+        }
+        outputFile.Close()
     }
 }
 
-func minifyFilesInGroup(fileList []interface{}) ([][]byte) {
+func (g *Gammit) minifyFilesInGroup(mediaType string, fileList []interface{}) ([][]byte) {
     i := 0
     minified := make([][]byte, len(fileList))
 
@@ -64,19 +78,34 @@ func minifyFilesInGroup(fileList []interface{}) ([][]byte) {
         os.Open(file.(string))
 
         f, err := os.Open(file.(string))
-        if err != nil {
-            panic(err)
-        }
+        check(err)
+        defer f.Close()
 
         buf := new(bytes.Buffer)
-        jsmin.Min(f, buf)
-        f.Close()
+        g.Minifier.Minify(mediaType, buf, f)
 
-        // read the output into our minified slice
         minified[i] = buf.Bytes()
 
         i += 1
     }
     return minified
+
+}
+
+
+func main() {
+    minifier := minify.New()
+    minifier.AddFunc("text/css", css.Minify)
+    minifier.AddFunc("text/javascript", js.Minify)
+
+    gammit := &Gammit{Minifier: minifier}
+    gammit.ReadYaml()
+    gammit.Process()
+}
+
+func check(error error) {
+    if error != nil {
+        panic(error)
+    }
 }
 
