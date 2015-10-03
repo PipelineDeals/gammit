@@ -12,14 +12,12 @@ import(
 var (
     configFileLocation = flag.String("c", "assets.yml", "The config file location")
     outputLocation = flag.String("o", ".", "The output directory")
-
 )
 
 func main() {
     minifier := minify.New()
     minifier.AddFunc("text/css", css.Minify)
     minifier.AddFunc("text/javascript", js.Minify)
-
 
     data, err := ioutil.ReadFile(*configFileLocation)
     if err != nil {
