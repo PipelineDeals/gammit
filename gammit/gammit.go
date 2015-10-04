@@ -8,6 +8,7 @@ import(
 	"bytes"
 	"compress/gzip"
 	"io/ioutil"
+	"path/filepath"
 )
 
 type JavascriptAssets struct {
@@ -66,26 +67,35 @@ func (g *Gammit) processGroup(section string, mediaType string, fileType string)
 }
 
 func (g *Gammit) minifyFilesInGroup(mediaType string, fileList []interface{}) ([][]byte) {
-	i := 0
-	minified := make([][]byte, len(fileList))
+	minified := make([][]byte, 0)
 
 	for _, file := range fileList {
-		fmt.Println("   File: " +file.(string))
-		os.Open(file.(string))
+		filename := file.(string)
 
-		f, err := os.Open(file.(string))
-		g.check(err)
-		defer f.Close()
+		fmt.Println("   File: " + filename)
 
-		buf := new(bytes.Buffer)
-		g.Minifier.Minify(mediaType, buf, f)
-
-		minified[i] = buf.Bytes()
-
-		i += 1
+		if _, err := os.Stat(filename); os.IsNotExist(err) {
+			globbed, _ := filepath.Glob(filename)
+			for _, globbedFile := range globbed {
+				globbedMinified := g.minifyFile(globbedFile, mediaType)
+				minified = append(minified, globbedMinified)
+			}
+		} else {
+			minified = append(minified, g.minifyFile(filename, mediaType))
+		}
 	}
 	return minified
+}
 
+func (g *Gammit) minifyFile(filename string, mediaType string) ([]byte) {
+	f, err := os.Open(filename)
+	g.check(err)
+	defer f.Close()
+
+	buf := new(bytes.Buffer)
+	g.Minifier.Minify(mediaType, buf, f)
+
+	return buf.Bytes()
 }
 
 func (g *Gammit) check(error error) {
